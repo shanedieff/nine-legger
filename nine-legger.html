@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Nine Legger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=Archivo+Narrow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<style>
+  :root{
+    --paper:#EDE7D8;
+    --ink:#1B1A17;
+    --muted:rgba(27,26,23,0.58);
+    --rule:#1B1A17;
+    --rule-light:rgba(27,26,23,0.22);
+    --stamp:#9B2B24;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Archivo Narrow', Arial, sans-serif;
+    min-height:100vh;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+  .wrap{ max-width:600px; margin:0 auto; padding:22px 16px 70px; }
+
+  .masthead{
+    text-align:center;
+    font-family:'PT Serif', Georgia, serif;
+    font-weight:700;
+    font-size:34px;
+    letter-spacing:0.5px;
+    margin:0 0 10px;
+  }
+  .rule-thick{ border:none; border-top:3px solid var(--rule); margin:0; }
+  .rule-thin{ border:none; border-top:1px solid var(--rule); margin:3px 0 14px; }
+  .rule{ border:none; border-top:1px solid var(--rule-light); margin:14px 0; }
+
+  .dateline{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:13px; letter-spacing:0.6px; padding-bottom:10px;
+    border-bottom:1px solid var(--rule);
+  }
+  .dateline .wk{ font-weight:700; }
+  .dateline .status{ color:var(--muted); }
+  .dateline .status.locked{ color:var(--stamp); font-weight:700; }
+
+  .nav{
+    display:flex; justify-content:center; flex-wrap:wrap;
+    gap:0; padding:12px 0 4px;
+    font-size:12.5px; letter-spacing:0.5px;
+  }
+  .nav button{
+    background:none; border:none; font-family:inherit; font-size:inherit;
+    letter-spacing:inherit; color:var(--muted); cursor:pointer;
+    padding:6px 11px; text-transform:uppercase;
+  }
+  .nav button + button{ border-left:1px solid var(--rule-light); }
+  .nav button:hover{ color:var(--ink); }
+  .nav button.active{ color:var(--ink); font-weight:700; text-decoration:underline; text-underline-offset:4px; }
+  .nav button:focus-visible{ outline:1px dashed var(--ink); outline-offset:2px; }
+
+  .section{ margin-bottom:26px; }
+  .section h2{
+    font-family:'PT Serif', Georgia, serif;
+    font-weight:700;
+    font-size:17px;
+    margin:0 0 10px;
+  }
+  .note{ font-size:12px; color:var(--muted); margin:0 0 12px; line-height:1.5; }
+
+  label{ display:block; font-size:11.5px; color:var(--muted); margin-bottom:5px; letter-spacing:0.3px; }
+  select, input[type=text], textarea{
+    width:100%;
+    background:transparent;
+    border:1px solid var(--rule);
+    color:var(--ink);
+    font-family:'Archivo Narrow', sans-serif;
+    font-size:15px;
+    padding:9px 10px;
+    border-radius:0;
+    margin-bottom:14px;
+  }
+  textarea{ resize:vertical; min-height:70px; }
+  select:focus, input:focus, textarea:focus{ outline:none; border-width:2px; }
+
+  .btn{
+    display:inline-block;
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--ink);
+    font-family:'Archivo Narrow', sans-serif;
+    font-weight:700;
+    font-size:12.5px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    padding:9px 16px;
+    border-radius:0;
+    cursor:pointer;
+  }
+  .btn:hover{ background:var(--ink); color:var(--paper); }
+  .btn.text{ border:none; padding:0; text-decoration:underline; text-underline-offset:3px; }
+  .btn.text:hover{ background:none; color:var(--stamp); }
+  .btn.small{ padding:6px 10px; font-size:11px; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  .dotrow{
+    display:flex; align-items:baseline; gap:6px;
+    padding:8px 0; border-bottom:1px solid var(--rule-light);
+    font-size:14px;
+  }
+  .dotrow:last-child{ border-bottom:none; }
+  .dotrow .num{ font-size:11px; color:var(--muted); width:14px; flex-shrink:0; }
+  .dotrow .who{ flex-shrink:0; font-weight:600; }
+  .dotrow .fill{ flex:1; border-bottom:1px dotted var(--rule-light); position:relative; top:-3px; margin:0 2px; }
+  .dotrow .val{ text-align:right; flex-shrink:1; min-width:0; }
+  .dotrow .val.waiting{ color:var(--muted); font-style:italic; }
+  .dotrow .val.filled{ font-weight:600; }
+  .odds{ color:var(--muted); font-weight:400; margin-left:6px; font-variant-numeric:tabular-nums; }
+  .betline{ display:flex; gap:10px; }
+  .betline .bet{ flex:1; min-width:0; }
+  .betline .oddsin{ width:96px; flex-shrink:0; }
+  .tag-result.wide{ width:auto; padding:0 6px; }
+  .odds.nomargin{ margin-left:0; }
+  .dotrow.combined{ border-top:2px solid var(--rule); margin-top:4px; }
+
+  .tag-result{
+    display:inline-block; min-width:16px; text-align:center;
+    font-size:10.5px; font-weight:700; letter-spacing:0.3px;
+    border:1px solid var(--rule); padding:1px 5px; margin-left:6px;
+  }
+  .tag-result.win{ border-color:var(--ink); }
+  .tag-result.loss{ border-color:var(--stamp); color:var(--stamp); }
+  .tag-result.push{ color:var(--muted); border-color:var(--rule-light); }
+
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  thead th{
+    text-align:left; font-size:11px; letter-spacing:0.5px; text-transform:uppercase;
+    color:var(--muted); padding:0 6px 8px 0;
+    border-bottom:2px solid var(--rule);
+  }
+  thead th.num{ text-align:right; }
+  td{ padding:8px 6px 8px 0; border-bottom:1px solid var(--rule-light); }
+  td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  tr:last-child td{ border-bottom:none; }
+  .rank{ color:var(--muted); width:18px; }
+
+  .history-head{
+    display:flex; justify-content:space-between; align-items:baseline;
+    cursor:pointer; padding:9px 0; border-bottom:1px solid var(--rule-light);
+    font-size:14px;
+  }
+  .history-head .hlabel{ font-weight:700; }
+  .history-head .hmeta{ font-size:11.5px; color:var(--muted); }
+  .history-body{ display:none; padding:2px 0 10px; }
+  .history-body.open{ display:block; }
+
+  .empty-state{ padding:18px 0; color:var(--muted); font-size:13px; line-height:1.6; }
+
+  .toast{
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--ink); color:var(--paper);
+    font-size:12.5px; letter-spacing:0.4px; text-align:center;
+    padding:10px; text-transform:uppercase;
+    transform:translateY(100%); transition:transform 0.2s ease;
+  }
+  .toast.show{ transform:translateY(0); }
+
+  .tag-list{ display:flex; flex-wrap:wrap; gap:0 14px; margin-bottom:12px; font-size:13.5px; }
+  .tag-list .tag{ padding:5px 0; }
+  .tag-list button{
+    background:none; border:none; color:var(--stamp); cursor:pointer;
+    font-size:12px; margin-left:4px; padding:0;
+  }
+
+  .result-row{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px; padding:8px 0; border-bottom:1px solid var(--rule-light); font-size:14px;
+  }
+  .result-row:last-child{ border-bottom:none; }
+  .result-row .rr-name{ font-size:11px; color:var(--muted); }
+  .result-btns{ display:flex; gap:4px; flex-shrink:0; }
+  .result-btns button{
+    font-family:'Archivo Narrow',sans-serif; font-size:10.5px; font-weight:700; text-transform:uppercase;
+    padding:5px 8px; border:1px solid var(--rule-light); background:transparent; color:var(--muted); cursor:pointer;
+  }
+  .result-btns button.on{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .result-btns button.on.loss{ background:var(--stamp); border-color:var(--stamp); }
+
+  .loading{ text-align:center; padding:40px 12px; color:var(--muted); font-size:13px; }
+  .setup-box{ border:2px solid var(--ink); padding:18px; font-size:13.5px; line-height:1.6; }
+  .setup-box h2{ font-family:'PT Serif', Georgia, serif; margin-top:0; }
+  .setup-box code{ background:rgba(27,26,23,0.08); padding:1px 5px; font-family:monospace; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1 class="masthead">The Nine Legger</h1>
+  <hr class="rule-thick"><hr class="rule-thin">
+
+  <div class="dateline">
+    <span class="wk" id="wkLabel">—</span>
+    <span class="status" id="wkStatus"></span>
+  </div>
+
+  <div class="nav" id="tabs">
+    <button class="tab" data-tab="submit">Submit</button>
+    <button class="tab" data-tab="thisweek">This Week</button>
+    <button class="tab" data-tab="standings">Standings</button>
+    <button class="tab" data-tab="history">History</button>
+    <button class="tab" data-tab="commish">Commish</button>
+  </div>
+  <hr class="rule">
+
+  <div id="content"><div class="loading">Loading the board&hellip;</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Firebase settings live in firebase-config.js (a separate file), so updating this page
+// never means re-pasting them.
+let db = null;
+
+function configIsPlaceholder(){
+  return typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.indexOf('PASTE_') !== -1;
+}
+
+function initFirebase(){
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    return true;
+  }catch(e){ console.error('firebase init failed', e); return false; }
+}
+
+const ref = id => db.collection('nineLegger').doc(id);
+
+// Reads THROW when they fail. null only ever means "this document really doesn't exist".
+// (Before, a dropped connection came back as null and the app treated it as an empty
+// database, then wrote its defaults over your real roster, week and picks.)
+async function fGet(id){
+  let lastErr;
+  for(let i = 0; i < 3; i++){
+    try{
+      const doc = await ref(id).get();
+      return doc.exists ? doc.data() : null;
+    }catch(e){
+      lastErr = e;
+      if(i < 2) await new Promise(r => setTimeout(r, 300 * (i + 1)));
+    }
+  }
+  console.error('fGet failed', id, lastErr);
+  throw lastErr;
+}
+
+// Every normal write goes through here. It re-reads the document INSIDE the write, changes
+// only what this action is about, and saves it back atomically. So it always applies to the
+// current data (never to whatever this page loaded earlier), two people saving at the same
+// moment both land, and if the connection fails nothing is written.
+async function fUpdate(id, change, fallback){
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref(id));
+    const next = change(snap.exists ? snap.data() : fallback());
+    tx.set(ref(id), next);
+    return next;
+  });
+}
+
+// Create a document only if it isn't there yet (first-ever load). Never overwrites.
+async function fEnsure(id, make){
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(ref(id));
+    if(!snap.exists) tx.set(ref(id), make());
+  });
+}
+
+// Plain overwrite. Only used by "Restore from backup", where overwriting is the point.
+async function fSet(id, data){ await ref(id).set(data); }
+
+// Run a write and tell the person plainly if it didn't go through.
+async function attempt(what, fn){
+  try{ await fn(); return true; }
+  catch(e){
+    console.error(what + ' failed', e);
+    if(e && e.message === 'LOCKED'){ showToast('This week is locked. Ask the commish.', 3500); render(); }
+    else showToast("Didn't save. Check your signal and try again.", 3500);
+    return false;
+  }
+}
+
+function weekDocId(label){ return 'week_' + label; }
+const newWeek   = () => ({ locked:false, legs:{} });
+const newRoster = () => ({ names: DEFAULT_ROSTER.slice() });
+const newMeta   = () => ({ currentWeek:'Week 1', weeksOrder:['Week 1'], commishCode: DEFAULT_COMMISH_CODE });
+
+function esc(str){ const d = document.createElement('div'); d.textContent = String(str ?? ''); return d.innerHTML; }
+function showToast(msg, ms = 2000){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=> t.classList.remove('show'), ms);
+}
+
+const DEFAULT_ROSTER = ["Shane","Fitz","Daniel","Ben","Joe","Eagan","Randy","RJ","Sheedy"];
+const DEFAULT_COMMISH_CODE = "9legger";
+
+const state = {
+  roster: [], weeksOrder: [], currentWeek: null, weekCache: {},
+  activeTab: 'submit', submitName: '', openHistory: null, commishSelectedWeek: null,
+  commishUnlocked: false, commishCode: null, offline: false, pass: null,
+};
+
+// For DISPLAY only. Always pulls fresh so other people's picks show up without a reload.
+// If the read fails we show the last copy we had and flag the page as offline. Nothing
+// written ever starts from this copy; writes re-read inside fUpdate.
+async function loadWeek(label){
+  if(state.pass && label in state.pass) return state.pass[label];   // one fetch per week per screen draw
+  let w;
+  try{
+    w = await fGet(weekDocId(label));
+    if(w) state.weekCache[label] = w; else w = newWeek();           // null = doc genuinely doesn't exist yet
+  }catch(e){
+    state.offline = true;
+    w = state.weekCache[label] || newWeek();
+  }
+  if(state.pass) state.pass[label] = w;
+  return w;
+}
+
+async function refreshGlobals(){
+  // Re-pulls roster + settings fresh on every render. Throws if the connection is down.
+  const rosterDoc = await fGet('roster');
+  if(rosterDoc && rosterDoc.names) state.roster = rosterDoc.names;
+
+  const metaDoc = await fGet('meta');
+  if(metaDoc){
+    state.weeksOrder = metaDoc.weeksOrder || state.weeksOrder;
+    state.currentWeek = metaDoc.currentWeek || state.currentWeek;
+    state.commishCode = metaDoc.commishCode || state.commishCode;
+  }
+}
+
+function renderSetupNeeded(){
+  document.getElementById('content').innerHTML = `
+    <div class="setup-box">
+      <h2>Needs your Firebase config</h2>
+      <p>This board is backed by a Firebase project so your group can use it without logging into anything. Open <code>firebase-config.js</code> (it sits next to this page on GitHub) and paste in your project's config values (Firebase console &gt; Project settings &gt; General &gt; Your apps). If that file is missing, upload it next to this page.</p>
+    </div>`;
+}
+
+function renderOffline(){
+  document.getElementById('content').innerHTML = `
+    <div class="setup-box">
+      <h2>Can't reach the board</h2>
+      <p>The connection dropped before the latest picks loaded. Nothing was changed. Check your signal and try again.</p>
+      <p><button class="btn" id="retryBtn">Try again</button></p>
+    </div>`;
+  document.getElementById('retryBtn').addEventListener('click', ()=>{
+    document.getElementById('content').innerHTML = '<div class="loading">Loading the board&hellip;</div>';
+    init();
+  });
+}
+
+let tabsBound = false;
+async function init(){
+  if(configIsPlaceholder() || typeof firebase === 'undefined'){ renderSetupNeeded(); return; }
+  if(!db && !initFirebase()){ renderSetupNeeded(); return; }
+
+  try{
+    // First-ever load only: create the starting docs if, and only if, a successful read
+    // says they don't exist. A failed read lands in the catch and writes nothing.
+    if(!(await fGet('roster'))) await fEnsure('roster', newRoster);
+    if(!(await fGet('meta')))   await fEnsure('meta', newMeta);
+    await refreshGlobals();
+  }catch(e){ renderOffline(); return; }
+
+  if(!tabsBound){
+    tabsBound = true;
+    document.getElementById('tabs').addEventListener('click', async (e)=>{
+      const btn = e.target.closest('.tab'); if(!btn) return;
+      state.activeTab = btn.dataset.tab; await render();
+    });
+  }
+  await render();
+}
+
+async function render(){
+  state.offline = false;
+  state.pass = {};
+  try{ await refreshGlobals(); }catch(e){ state.offline = true; }
+  document.querySelectorAll('.tab').forEach(b=> b.classList.toggle('active', b.dataset.tab === state.activeTab));
+  const curWeek = await loadWeek(state.currentWeek);
+  document.getElementById('wkLabel').textContent = state.currentWeek;
+
+  const content = document.getElementById('content');
+  if(state.activeTab === 'submit') content.innerHTML = await renderSubmit();
+  else if(state.activeTab === 'thisweek') content.innerHTML = await renderThisWeek();
+  else if(state.activeTab === 'standings') content.innerHTML = await renderStandings();
+  else if(state.activeTab === 'history') content.innerHTML = await renderHistory();
+  else if(state.activeTab === 'commish') content.innerHTML = await renderCommish();
+
+  bindDynamicHandlers();
+  state.pass = null;
+
+  const statusEl = document.getElementById('wkStatus');
+  statusEl.textContent = state.offline ? 'Offline: showing last loaded' : (curWeek.locked ? 'Locked' : 'Open');
+  statusEl.classList.toggle('locked', state.offline || !!curWeek.locked);
+}
+
+// ---------- ODDS ----------
+// Odds are stored on each leg as a plain number in American format (-110, +150).
+// Picks saved before odds existed have no `odds` field and keep working everywhere.
+function parseOdds(raw){
+  const s = String(raw || '').trim().toLowerCase().replace(/[−–—]/g, '-').replace(/[\s,]/g, '');
+  if(s === 'even' || s === 'ev') return 100;
+  if(!/^[+-]\d{3,5}$/.test(s)) return null;           // needs a sign, so +150 and -150 can't be confused
+  const n = parseInt(s, 10);
+  return Math.abs(n) >= 100 ? n : null;
+}
+const hasOdds = leg => !!leg && typeof leg.odds === 'number';
+const fmtOdds = n => (n > 0 ? '+' : '-') + Math.abs(n).toLocaleString('en-US');
+const toDecimal = n => n > 0 ? 1 + n / 100 : 1 + 100 / Math.abs(n);
+
+// One line of a pick: the bet text, plus its odds when it has them.
+function legLabel(leg){
+  return esc(leg.bet) + (hasOdds(leg) ? ` <span class="odds">${fmtOdds(leg.odds)}</span>` : '');
+}
+
+// The week's parlay: combined odds if every pick has odds, and where it stands.
+function parlayOf(week){
+  const legs = week.legs || {};
+  const picked = state.roster.filter(n => legs[n]);
+  const missing = picked.filter(n => !hasOdds(legs[n]));
+  const results = picked.map(n => legs[n].result);
+  let status = 'none';
+  if(picked.length){
+    if(results.includes('loss')) status = 'lost';
+    else if(results.some(r => r !== 'win' && r !== 'push')) status = 'live';
+    else status = 'hit';
+  }
+  let american = null, multiplier = null;
+  if(picked.length && !missing.length){
+    multiplier = picked.reduce((acc, n) => acc * toDecimal(legs[n].odds), 1);
+    american = multiplier >= 2 ? Math.round((multiplier - 1) * 100) : -Math.round(100 / (multiplier - 1));
+  }
+  return { count: picked.length, missing, status, american, multiplier };
+}
+const fmtMultiplier = m => (m >= 100 ? Math.round(m).toLocaleString('en-US') : m.toFixed(1)) + 'x';
+const STATUS_WORD = { hit: 'Hit', lost: 'Lost', live: 'Live' };
+const STATUS_CLASS = { hit: 'win', lost: 'loss', live: 'push' };
+
+// The "Combined" line under a week's picks.
+function parlayRow(week){
+  const p = parlayOf(week);
+  if(!p.count) return '';
+  const tag = `<span class="tag-result ${STATUS_CLASS[p.status]} wide">${STATUS_WORD[p.status]}</span>`;
+  const label = p.status === 'live' && p.count < state.roster.length ? 'Combined so far' : 'Combined';
+  const val = p.missing.length
+    ? `<span class="odds nomargin">odds missing: ${p.missing.map(esc).join(', ')}</span>`
+    : `${fmtOdds(p.american)} <span class="odds">returns ${fmtMultiplier(p.multiplier)}</span>`;
+  return `<div class="dotrow combined">
+      <span class="who">${label}</span><span class="fill"></span>
+      <span class="val filled">${val}</span>${tag}
+    </div>`;
+}
+
+// ---------- SUBMIT ----------
+async function renderSubmit(){
+  const week = await loadWeek(state.currentWeek);
+  const legs = week.legs || {};
+  const rows = state.roster.map(name=>{
+    const leg = legs[name];
+    return `<div class="dotrow">
+      <span class="who">${esc(name)}</span>
+      <span class="fill"></span>
+      <span class="val ${leg?'filled':'waiting'}">${leg ? legLabel(leg) : 'waiting'}</span>
+    </div>`;
+  }).join('');
+
+  if(week.locked){
+    return `
+      <div class="section">
+        <h2>${esc(state.currentWeek)} is locked</h2>
+        <p class="note">Submissions are closed. See This Week for the full slip.</p>
+        ${rows}
+      </div>`;
+  }
+
+  const options = state.roster.map(n=>
+    `<option value="${esc(n)}" ${state.submitName===n?'selected':''}>${esc(n)}${legs[n]?' (in)':''}</option>`
+  ).join('');
+  const mine = state.submitName ? legs[state.submitName] : null;
+  const existingBet = mine ? mine.bet : '';
+  const existingOdds = hasOdds(mine) ? fmtOdds(mine.odds) : '';
+
+  return `
+    <div class="section">
+      <h2>Lock in your leg</h2>
+      <label for="pickName">Who are you?</label>
+      <select id="pickName">
+        <option value="">Choose your name&hellip;</option>
+        ${options}
+      </select>
+      <div class="betline">
+        <div class="bet">
+          <label for="betInput">Your bet</label>
+          <input type="text" id="betInput" placeholder="e.g. Chiefs -6.5" value="${esc(existingBet)}">
+        </div>
+        <div class="oddsin">
+          <label for="oddsInput">Odds</label>
+          <input type="text" id="oddsInput" placeholder="-110" autocomplete="off" autocapitalize="off" value="${esc(existingOdds)}">
+        </div>
+      </div>
+      <button class="btn" id="submitBetBtn">Submit bet</button>
+    </div>
+    <div class="section">
+      <h2>Who's in &mdash; ${Object.keys(legs).length} of ${state.roster.length}</h2>
+      ${rows}
+    </div>`;
+}
+
+function bindDynamicHandlers(){
+  const pickName = document.getElementById('pickName');
+  if(pickName) pickName.addEventListener('change', async ()=>{ state.submitName = pickName.value; await render(); });
+
+  const submitBtn = document.getElementById('submitBetBtn');
+  if(submitBtn) submitBtn.addEventListener('click', async ()=>{
+    const name = document.getElementById('pickName').value;
+    const bet = document.getElementById('betInput').value.trim();
+    if(!name){ showToast('Pick your name first'); return; }
+    if(!bet){ showToast('Type a bet first'); return; }
+    const odds = parseOdds(document.getElementById('oddsInput').value);
+    if(odds === null){ showToast('Odds need a + or - sign, like -110 or +150', 3500); return; }
+    const label = state.currentWeek;
+    const ok = await attempt('submit', () => fUpdate(weekDocId(label), w => {
+      if(w.locked) throw new Error('LOCKED');
+      w.legs = w.legs || {};
+      const existing = w.legs[name];
+      w.legs[name] = { bet, odds, submittedAt: new Date().toISOString(), result: existing ? existing.result : 'pending' };
+      return w;
+    }, newWeek));
+    if(!ok) return;                      // keep what they typed so they can tap Submit again
+    showToast('Bet locked in');
+    await render();
+  });
+
+  document.querySelectorAll('.history-head').forEach(h=> h.addEventListener('click', async ()=>{
+    const label = h.dataset.label;
+    state.openHistory = state.openHistory === label ? null : label;
+    await render();
+  }));
+
+  const copyBtn = document.getElementById('copySlipBtn');
+  if(copyBtn) copyBtn.addEventListener('click', async ()=>{
+    const week = await loadWeek(state.currentWeek);
+    const text = buildSlipText(state.currentWeek, week);
+    try{ await navigator.clipboard.writeText(text); showToast('Slip copied'); }
+    catch(e){ showToast('Copy failed — select manually'); }
+  });
+
+  const addNameBtn = document.getElementById('addNameBtn');
+  if(addNameBtn) addNameBtn.addEventListener('click', async ()=>{
+    const input = document.getElementById('newNameInput');
+    const name = input.value.trim();
+    if(!name) return;
+    if(state.roster.includes(name)){ showToast('Already on the roster'); return; }
+    const ok = await attempt('add name', () => fUpdate('roster', r => {
+      r.names = r.names || [];
+      if(!r.names.includes(name)) r.names.push(name);
+      return r;
+    }, newRoster));
+    if(ok) await render();
+  });
+  document.querySelectorAll('.removeNameBtn').forEach(b=> b.addEventListener('click', async ()=>{
+    const target = b.dataset.name;
+    const ok = await attempt('remove name', () => fUpdate('roster', r => {
+      r.names = (r.names || []).filter(n => n !== target);
+      return r;
+    }, newRoster));
+    if(ok) await render();
+  }));
+
+  const startWeekBtn = document.getElementById('startWeekBtn');
+  if(startWeekBtn) startWeekBtn.addEventListener('click', async ()=>{
+    const input = document.getElementById('newWeekInput');
+    const label = input.value.trim();
+    if(!label){ showToast('Name the week first'); return; }
+    const ok = await attempt('start week', () => fUpdate('meta', m => {
+      m.weeksOrder = m.weeksOrder || [];
+      if(!m.weeksOrder.includes(label)) m.weeksOrder.push(label);
+      m.currentWeek = label;
+      return m;
+    }, newMeta));
+    if(!ok) return;
+    showToast('Now on ' + label);
+    state.activeTab = 'submit';
+    await render();
+  });
+
+  const lockBtn = document.getElementById('toggleLockBtn');
+  if(lockBtn) lockBtn.addEventListener('click', async ()=>{
+    const label = state.currentWeek;
+    const want = lockBtn.dataset.want === 'lock';       // what the button said when it was drawn
+    const ok = await attempt('lock', () => fUpdate(weekDocId(label), w => { w.locked = want; w.legs = w.legs || {}; return w; }, newWeek));
+    if(ok) await render();
+  });
+
+  const weekSelect = document.getElementById('resultsWeekSelect');
+  if(weekSelect) weekSelect.addEventListener('change', async ()=>{
+    state.commishSelectedWeek = weekSelect.value; await render();
+  });
+  document.querySelectorAll('.result-btns button').forEach(b=> b.addEventListener('click', async ()=>{
+    const label = b.dataset.week, name = b.dataset.name, result = b.dataset.result;
+    const ok = await attempt('grade', () => fUpdate(weekDocId(label), w => {
+      const l = w.legs && w.legs[name];
+      if(l) l.result = l.result === result ? 'pending' : result;
+      return w;
+    }, newWeek));
+    if(ok) await render();
+  }));
+
+  const backupBtn = document.getElementById('backupBtn');
+  if(backupBtn) backupBtn.addEventListener('click', async ()=>{
+    const weeks = {};
+    for(const label of state.weeksOrder){ weeks[label] = await loadWeek(label); }
+    const backup = { roster: state.roster, weeksOrder: state.weeksOrder, weeks };
+    try{ await navigator.clipboard.writeText(JSON.stringify(backup, null, 2)); showToast('Backup copied — paste it somewhere safe'); }
+    catch(e){ showToast('Copy failed — select manually'); }
+  });
+
+  const restoreBtn = document.getElementById('restoreBtn');
+  if(restoreBtn) restoreBtn.addEventListener('click', async ()=>{
+    const raw = document.getElementById('restoreInput').value.trim();
+    if(!raw){ showToast('Paste a backup first'); return; }
+    let data;
+    try{ data = JSON.parse(raw); }catch(e){ showToast('That is not valid backup text'); return; }
+    if(!data.roster || !data.weeksOrder || !data.weeks){ showToast('That backup looks incomplete'); return; }
+    state.weekCache = {};
+    const ok = await attempt('restore', async () => {
+      await fSet('roster', { names: data.roster });
+      await fUpdate('meta', m => {
+        m.weeksOrder = data.weeksOrder;
+        m.currentWeek = data.weeksOrder[data.weeksOrder.length-1] || m.currentWeek;
+        return m;
+      }, newMeta);
+      for(const label of data.weeksOrder){
+        await fSet(weekDocId(label), data.weeks[label] || newWeek());
+      }
+    });
+    if(!ok) return;
+    showToast('Restored');
+    await render();
+  });
+
+  const unlockBtn = document.getElementById('unlockCommishBtn');
+  if(unlockBtn) unlockBtn.addEventListener('click', async ()=>{
+    const val = document.getElementById('commishPasscodeInput').value.trim();
+    if(val && val === state.commishCode){ state.commishUnlocked = true; await render(); }
+    else showToast('Wrong passcode');
+  });
+  const passInput = document.getElementById('commishPasscodeInput');
+  if(passInput) passInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') document.getElementById('unlockCommishBtn').click();
+  });
+
+  const changeCodeBtn = document.getElementById('changeCodeBtn');
+  if(changeCodeBtn) changeCodeBtn.addEventListener('click', async ()=>{
+    const val = document.getElementById('newCodeInput').value.trim();
+    if(!val){ showToast('Type a new passcode'); return; }
+    const ok = await attempt('passcode', () => fUpdate('meta', m => { m.commishCode = val; return m; }, newMeta));
+    if(!ok) return;
+    state.commishCode = val;
+    showToast('Passcode updated');
+  });
+}
+
+function buildSlipText(label, week){
+  const legs = week.legs || {};
+  const names = state.roster.filter(n=> legs[n]);
+  let text = 'THE NINE LEGGER — ' + label + '\n';
+  names.forEach((n,i)=>{
+    text += (i+1) + '. ' + n + ' — ' + legs[n].bet + (hasOdds(legs[n]) ? ' (' + fmtOdds(legs[n].odds) + ')' : '') + '\n';
+  });
+  if(names.length === 0) text += '(no legs submitted yet)\n';
+  const p = parlayOf(week);
+  if(p.count && !p.missing.length) text += '\nCombined: ' + fmtOdds(p.american) + ' (returns ' + fmtMultiplier(p.multiplier) + ')\n';
+  return text;
+}
+
+// ---------- THIS WEEK ----------
+async function renderThisWeek(){
+  const week = await loadWeek(state.currentWeek);
+  const legs = week.legs || {};
+  const rows = state.roster.map((name,i)=>{
+    const leg = legs[name];
+    const tag = leg && leg.result !== 'pending' ? `<span class="tag-result ${leg.result}">${leg.result[0].toUpperCase()}</span>` : '';
+    return `<div class="dotrow">
+      <span class="num">${i+1}</span>
+      <span class="who">${esc(name)}</span>
+      <span class="fill"></span>
+      <span class="val ${leg?'filled':'waiting'}">${leg ? legLabel(leg) : 'open'}</span>${tag}
+    </div>`;
+  }).join('') + parlayRow(week);
+
+  return `
+    <div class="section">
+      <h2>${esc(state.currentWeek)} slip</h2>
+      ${rows}
+      <div style="margin-top:14px;">
+        <button class="btn text" id="copySlipBtn">Copy slip as text</button>
+      </div>
+    </div>`;
+}
+
+// ---------- STANDINGS ----------
+async function computeStandings(){
+  const stats = {};
+  state.roster.forEach(n=> stats[n] = { win:0, loss:0, push:0, total:0 });
+  const perfectWeeks = [];
+  for(const label of state.weeksOrder){
+    const week = await loadWeek(label);
+    const legs = week.legs || {};
+    let anyLoss=false, anyResult=false, legCount=0;
+    Object.keys(legs).forEach(name=>{
+      const leg = legs[name]; legCount++;
+      if(!stats[name]) stats[name] = { win:0, loss:0, push:0, total:0 };
+      if(leg.result === 'win'){ stats[name].win++; stats[name].total++; anyResult=true; }
+      else if(leg.result === 'loss'){ stats[name].loss++; stats[name].total++; anyResult=true; anyLoss=true; }
+      else if(leg.result === 'push'){ stats[name].push++; stats[name].total++; anyResult=true; }
+    });
+    if(week.locked && anyResult && !anyLoss && legCount>0) perfectWeeks.push(label);
+  }
+  return { stats, perfectWeeks };
+}
+
+async function renderStandings(){
+  const { stats, perfectWeeks } = await computeStandings();
+  const ranked = Object.keys(stats).map(name=>{
+    const s = stats[name]; const decided = s.win + s.loss;
+    const pct = decided > 0 ? Math.round((s.win/decided)*100) : null;
+    return { name, ...s, pct };
+  }).sort((a,b)=> (b.pct ?? -1)-(a.pct ?? -1) || b.win-a.win);
+
+  if(ranked.every(r=> r.total === 0)){
+    return `<div class="section"><div class="empty-state">No results marked yet. Once the commish grades a week, standings show up here.</div></div>`;
+  }
+  const rows = ranked.map((r,i)=>`
+    <tr>
+      <td class="rank">${i+1}</td>
+      <td>${esc(r.name)}</td>
+      <td class="num">${r.win}-${r.loss}-${r.push}</td>
+      <td class="num">${r.pct === null ? '—' : r.pct + '%'}</td>
+    </tr>`).join('');
+  const perfectBlock = perfectWeeks.length
+    ? `<p class="note" style="margin-top:14px;">Perfect weeks: ${perfectWeeks.map(esc).join(', ')}</p>` : '';
+
+  return `
+    <div class="section">
+      <h2>Standings</h2>
+      <table>
+        <thead><tr><th></th><th>Name</th><th class="num">W-L-P</th><th class="num">Win %</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${perfectBlock}
+    </div>`;
+}
+
+// ---------- HISTORY ----------
+async function renderHistory(){
+  const labels = state.weeksOrder.slice().reverse();
+  if(labels.length === 0) return `<div class="section"><div class="empty-state">No weeks yet — start one from Commish.</div></div>`;
+  let items = '';
+  for(const label of labels){
+    const week = await loadWeek(label);
+    const legs = week.legs || {};
+    const count = Object.keys(legs).length;
+    const open = state.openHistory === label;
+    let body = '';
+    if(open){
+      body = state.roster.filter(n=>legs[n]).map(n=>{
+        const leg = legs[n];
+        const tag = leg.result !== 'pending' ? `<span class="tag-result ${leg.result}">${leg.result[0].toUpperCase()}</span>` : '';
+        return `<div class="dotrow">
+          <span class="who">${esc(n)}</span><span class="fill"></span>
+          <span class="val filled">${legLabel(leg)}</span>${tag}
+        </div>`;
+      }).join('') + parlayRow(week);
+      if(!body) body = `<div class="empty-state">No legs were submitted this week.</div>`;
+    }
+    const hp = parlayOf(week);
+    const hodds = hp.american !== null ? ` · ${fmtOdds(hp.american)}${hp.status === 'hit' || hp.status === 'lost' ? ' ' + STATUS_WORD[hp.status].toLowerCase() : ''}` : '';
+    items += `
+      <div class="history-head" data-label="${esc(label)}">
+        <span class="hlabel">${esc(label)}</span>
+        <span class="hmeta">${count} legs${hodds} ${week.locked?'· locked':''} ${open?'−':'+'}</span>
+      </div>
+      <div class="history-body ${open?'open':''}">${body}</div>`;
+  }
+  return `<div class="section"><h2>History</h2>${items}</div>`;
+}
+
+// ---------- COMMISH ----------
+async function renderCommish(){
+  if(!state.commishUnlocked){
+    return `
+      <div class="section">
+        <h2>Commish only</h2>
+        <p class="note">Enter the passcode to manage the roster, weeks, and results.</p>
+        <input type="text" id="commishPasscodeInput" placeholder="Passcode">
+        <button class="btn" id="unlockCommishBtn">Unlock</button>
+      </div>`;
+  }
+  const rosterTags = state.roster.map(n=>
+    `<span class="tag">${esc(n)}<button class="removeNameBtn" data-name="${esc(n)}" aria-label="Remove ${esc(n)}">✕</button></span>`
+  ).join('');
+  const week = await loadWeek(state.currentWeek);
+  const resultWeek = state.commishSelectedWeek || state.currentWeek;
+  const rWeek = await loadWeek(resultWeek);
+  const legs = rWeek.legs || {};
+  const weekOptions = state.weeksOrder.slice().reverse().map(l=>
+    `<option value="${esc(l)}" ${l===resultWeek?'selected':''}>${esc(l)}</option>`).join('');
+  const resultRows = state.roster.filter(n=>legs[n]).map(n=>{
+    const leg = legs[n];
+    const mk = (val)=> `<button data-week="${esc(resultWeek)}" data-name="${esc(n)}" data-result="${val}" class="${leg.result===val?'on '+val:''}">${val}</button>`;
+    return `<div class="result-row">
+      <div><div class="rr-name">${esc(n)}</div><div>${legLabel(leg)}</div></div>
+      <div class="result-btns">${mk('win')}${mk('loss')}${mk('push')}</div>
+    </div>`;
+  }).join('') || `<div class="empty-state">No legs submitted for this week.</div>`;
+
+  return `
+    <div class="section">
+      <h2>Roster</h2>
+      <div class="tag-list">${rosterTags}</div>
+      <div class="row">
+        <input type="text" id="newNameInput" placeholder="Add a name" style="margin-bottom:0;">
+        <button class="btn small" id="addNameBtn">Add</button>
+      </div>
+    </div>
+    <div class="section">
+      <h2>Week control</h2>
+      <p class="note">Current: ${esc(state.currentWeek)} — ${week.locked ? 'locked' : 'open'}</p>
+      <div class="row" style="margin-bottom:16px;">
+        <button class="btn small" id="toggleLockBtn" data-want="${week.locked ? 'unlock' : 'lock'}">${week.locked ? 'Unlock' : 'Lock'} this week</button>
+      </div>
+      <label for="newWeekInput">Start a new week</label>
+      <div class="row">
+        <input type="text" id="newWeekInput" placeholder="e.g. Week 4" style="margin-bottom:0;">
+        <button class="btn small" id="startWeekBtn">Start</button>
+      </div>
+    </div>
+    <div class="section">
+      <h2>Grade legs</h2>
+      <label for="resultsWeekSelect">Week</label>
+      <select id="resultsWeekSelect">${weekOptions}</select>
+      ${resultRows}
+    </div>
+    <div class="section">
+      <h2>Backup</h2>
+      <p class="note">This app's data lives in your Firebase project. Copy a backup now and then just in case.</p>
+      <button class="btn small" id="backupBtn">Copy full season backup</button>
+      <label for="restoreInput" style="margin-top:16px;">Restore from a backup (overwrites current data)</label>
+      <textarea id="restoreInput" rows="4" placeholder="Paste backup text here"></textarea>
+      <button class="btn small" id="restoreBtn">Restore</button>
+    </div>
+    <div class="section">
+      <h2>Passcode</h2>
+      <label for="newCodeInput">Change the commish passcode</label>
+      <div class="row">
+        <input type="text" id="newCodeInput" placeholder="New passcode" style="margin-bottom:0;">
+        <button class="btn small" id="changeCodeBtn">Save</button>
+      </div>
+    </div>`;
+}
+
+init();
+</script>
+</body>
+</html>
